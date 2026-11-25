@@ -1,0 +1,73 @@
+
+name: TeLegion Android Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/android-build.yml"
+      - "TMessagesProj/**"
+      - "TMessagesProj_App/**"
+      - "TMessagesProj_Modules/**"
+      - "build.gradle"
+      - "settings.gradle"
+      - "gradle.properties"
+      - "gradle/**"
+      - "buildSrc/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegion-android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build baseline APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout source and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "cmake;3.22.1" "ndk;27.2.12479018"
+
+      - name: Verify submodules
+        run: |
+          git submodule status --recursive
+          if git submodule status --recursive | grep -q '^-'; then
+            echo "One or more submodules are not initialized."
+            exit 1
+          fi
+
+      - name: Build baseline debug APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g" :TMessagesProj_App:assembleAfatDebug
+
+      - name: Upload baseline APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TeLegion-baseline-debug-apk
+          path: TMessagesProj_App/build/outputs/apk/afat/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7

@@ -7,7 +7,7 @@ on:
     branches:
       - master
     paths:
-      - ".github/workflows/android-build.yml"
+      - ".github/workflows/**"
       - "TMessagesProj/**"
       - "TMessagesProj_App/**"
       - "TMessagesProj_Modules/**"
@@ -16,81 +16,157 @@ on:
       - "gradle.properties"
       - "gradle/**"
       - "buildSrc/**"
+      - ".gitmodules"
 
 permissions:
   contents: read
 
 concurrency:
-  group: telegion-android-build-${{ github.ref }}
+  group: telegion-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Build baseline APK
+    name: Build TeLegion APK
     runs-on: ubuntu-24.04
     timeout-minutes: 180
 
     steps:
-      - name: Checkout source and submodules
-        uses: actions/checkout@v4
+      # 1. Checkout source
+      - name: Checkout Telegram source
+        uses: actions/checkout@v5
         with:
-          submodules: recursive
           fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
 
-      - name: Set up JDK 17
+      # 2. Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
+      # 3. Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v4
-        with:
-          packages: ''
-          accept-android-sdk-licenses: true
-          log-accepted-android-sdk-licenses: false
+          # SDK licenses are accepted below
 
-      - name: Accept Android SDK licenses
+      - name: Accept SDK licenses
         run: |
           yes | sdkmanager --licenses
 
-      - name: Install Android SDK components
+      # 4. Install required SDK packages
+      - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --install \
+          sdkmanager --install \
             "platform-tools" \
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "cmake;3.22.1" \
             "ndk;27.2.12479018"
 
+      # 5. Verify SDK
       - name: Verify Android SDK
         run: |
           sdkmanager --list_installed
-          echo "Android SDK setup completed."
+          echo "Android SDK ready"
 
+      # 6. Sync submodule URLs
+      - name: Sync submodules
+        run: |
+          git submodule sync --recursive
+
+      # 7. Initialize nested submodules
+      - name: Initialize submodules
+        run: |
+          git submodule update \
+            --init \
+            --recursive \
+            --jobs 4
+
+      # 8. Verify all submodules
       - name: Verify submodules
         run: |
           git submodule status --recursive
 
-          if git submodule status --recursive | grep -q '^-'; then
-            echo "ERROR: Submodules are not initialized."
+          if git submodule status --recursive | grep -E '^[+-U]'; then
+            echo "ERROR: Submodule verification failed"
             exit 1
           fi
 
-      - name: Build baseline debug APK
+          echo "All submodules are ready"
+
+      # 9. Prepare signing keystore for baseline build
+      - name: Prepare debug signing key
+        run: |
+          mkdir -p TMessagesProj/config
+
+          if [ ! -f TMessagesProj/config/release.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore TMessagesProj/config/release.keystore \
+              -storepass android \
+              -alias androidkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=TeLegion Debug,O=TeLegion,C=BD"
+          fi
+
+      # 10. Gradle setup
+      - name: Prepare Gradle
         run: |
           chmod +x ./gradlew
+          java -version
+          ./gradlew --version
 
+      # 11. Build APK
+      - name: Build Afat Debug APK
+        run: |
           ./gradlew \
             --no-daemon \
             --stacktrace \
-            -Dorg.gradle.jvmargs="-Xmx5g -XX:MaxMetaspaceSize=1g" \
+            --max-workers=2 \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g" \
             :TMessagesProj_App:assembleAfatDebug
 
-      - name: Upload baseline APK
-        uses: actions/upload-artifact@v4
+      # 12. Verify APK
+      - name: Verify APK output
+        run: |
+          echo "Searching for APK files..."
+
+          find TMessagesProj_App/build/outputs/apk \
+            -type f -name "*.apk" -print
+
+          APK_COUNT=$(find TMessagesProj_App/build/outputs/apk \
+            -type f -name "*.apk" | wc -l)
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "ERROR: No APK generated"
+            exit 1
+          fi
+
+          echo "APK generation successful"
+
+      # 13. Upload APK
+      - name: Upload TeLegion APK
+        uses: actions/upload-artifact@v5
         with:
-          name: TeLegion-baseline-debug-apk
-          path: TMessagesProj_App/build/outputs/apk/afat/debug/*.apk
+          name: TeLegion-Baseline-Debug-APK
+          path: TMessagesProj_App/build/outputs/apk/**/*.apk
           if-no-files-found: error
+          retention-days: 7
+
+      # 14. Save diagnostics on failure
+      - name: Upload build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: TeLegion-Build-Diagnostics
+          path: |
+            **/build/reports/
+            **/build/outputs/logs/
+            **/build/tmp/
+          if-no-files-found: ignore
           retention-days: 7

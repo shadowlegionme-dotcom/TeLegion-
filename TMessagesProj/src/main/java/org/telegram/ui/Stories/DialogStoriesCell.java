@@ -341,6 +341,12 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
         telegramLogoView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         telegramLogoView.setFocusableInTouchMode(true);
         addView(telegramLogoView, LayoutHelper.createFrame(90, 22));
+        // TeLegion: logo te 5 tap = hidden chat
+        telegramLogoView.setOnClickListener(v -> {
+            if (fragment instanceof org.telegram.ui.DialogsActivity) {
+                ((org.telegram.ui.DialogsActivity) fragment).legionTitleTap();
+            }
+        });
 
         statusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(null, dp(26));
         statusDrawable.center = true;

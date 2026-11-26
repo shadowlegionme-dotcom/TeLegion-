@@ -6902,6 +6902,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         PipCoordinator.getInstance().onActivityPause(this);
         NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.stopAllHeavyOperations, 4096);
         ApplicationLoader.mainInterfacePaused = true;
+        org.telegram.messenger.LegionHidden.setRevealed(false); // TeLegion: app theke ber holei abar lock
         int account = currentAccount;
         Utilities.stageQueue.postRunnable(() -> {
             ApplicationLoader.mainInterfacePausedStageQueue = true;

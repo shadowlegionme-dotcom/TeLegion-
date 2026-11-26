@@ -1134,6 +1134,9 @@ public class NotificationsController extends BaseController implements Notificat
 
             for (int a = 0; a < messageObjects.size(); a++) {
                 MessageObject messageObject = messageObjects.get(a);
+                if (LegionHidden.isHidden(currentAccount, messageObject.getDialogId())) {
+                    continue; // TeLegion: hidden chat
+                }
                 if (messageObject.messageOwner != null && (messageObject.isImportedForward() ||
                         messageObject.messageOwner.action instanceof TLRPC.TL_messageActionSetMessagesTTL ||
                         messageObject.messageOwner.silent && (messageObject.messageOwner.action instanceof TLRPC.TL_messageActionContactSignUp || messageObject.messageOwner.action instanceof TLRPC.TL_messageActionUserJoined)) ||
@@ -1451,6 +1454,9 @@ public class NotificationsController extends BaseController implements Notificat
             SharedPreferences preferences = getAccountInstance().getNotificationsSettings();
             for (int b = 0; b < dialogsToUpdate.size(); b++) {
                 long dialogId = dialogsToUpdate.keyAt(b);
+                if (dialogsToUpdate.get(dialogId) > 0 && LegionHidden.isHidden(currentAccount, dialogId)) {
+                    continue; // TeLegion: hidden chat
+                }
                 Integer currentCount = pushDialogs.get(dialogId);
                 int newCount = dialogsToUpdate.get(dialogId);
                 boolean forum = false;
@@ -1590,7 +1596,7 @@ public class NotificationsController extends BaseController implements Notificat
             if (messages != null) {
                 for (int a = 0; a < messages.size(); a++) {
                     TLRPC.Message message = messages.get(a);
-                    if (message == null) {
+                    if (message == null || LegionHidden.isHidden(currentAccount, MessageObject.getDialogId(message))) {
                         continue;
                     }
                     if (message.fwd_from != null && message.fwd_from.imported ||
@@ -1648,6 +1654,9 @@ public class NotificationsController extends BaseController implements Notificat
             }
             for (int a = 0; a < dialogs.size(); a++) {
                 long dialog_id = dialogs.keyAt(a);
+                if (LegionHidden.isHidden(currentAccount, dialog_id)) {
+                    continue; // TeLegion: hidden chat
+                }
                 int index = settingsCache.indexOfKey(dialog_id);
                 boolean value;
                 if (index >= 0) {
@@ -1679,6 +1688,9 @@ public class NotificationsController extends BaseController implements Notificat
             if (push != null) {
                 for (int a = 0; a < push.size(); a++) {
                     MessageObject messageObject = push.get(a);
+                    if (LegionHidden.isHidden(currentAccount, messageObject.getDialogId())) {
+                        continue; // TeLegion: hidden chat
+                    }
                     int mid = messageObject.getId();
                     if (pushMessagesDict.indexOfKey(mid) >= 0) {
                         continue;

@@ -115,6 +115,7 @@ import org.telegram.messenger.ImageLoader;
 import org.telegram.messenger.ImageLocation;
 import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.LiteMode;
+import org.telegram.messenger.LegionHidden;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MediaDataController;
@@ -3456,6 +3457,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             actionBar.setClipContent(true);
         //}
         actionBar.setTitleActionRunnable(() -> {
+            legionTitleTap();
             if (initialDialogsType != DIALOGS_TYPE_WIDGET) {
                 hideFloatingButton(false);
             }
@@ -10926,6 +10928,45 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     @NonNull
     public ArrayList<TLRPC.Dialog> getDialogsArray(int currentAccount, int dialogsType, int folderId, boolean frozen) {
+        // TeLegion: hidden chat list theke bad
+        return LegionHidden.filter(currentAccount, legionDialogsArray(currentAccount, dialogsType, folderId, frozen));
+    }
+
+    private int legionTitleTaps;
+    private long legionLastTitleTap;
+
+    // TeLegion: title e porpor 5 bar tap = hidden chat dekhano / lukano
+    public void legionTitleTap() {
+        final long now = android.os.SystemClock.elapsedRealtime();
+        legionTitleTaps = now - legionLastTitleTap < 600 ? legionTitleTaps + 1 : 1;
+        legionLastTitleTap = now;
+        if (legionTitleTaps < 5 || getParentActivity() == null) {
+            return;
+        }
+        legionTitleTaps = 0;
+        if (LegionHidden.isRevealed()) {
+            LegionHidden.setRevealed(false);
+        } else if (TextUtils.isEmpty(SharedConfig.passcodeHash)) {
+            LegionHidden.setRevealed(true);
+        } else {
+            final android.widget.EditText input = new android.widget.EditText(getParentActivity());
+            input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            new android.app.AlertDialog.Builder(getParentActivity())
+                    .setTitle("Passcode")
+                    .setView(input)
+                    .setPositiveButton("OK", (dialog, which) -> {
+                        if (SharedConfig.checkPasscode(input.getText().toString())) {
+                            LegionHidden.setRevealed(true);
+                        } else {
+                            android.widget.Toast.makeText(ApplicationLoader.applicationContext, "Vul passcode", android.widget.Toast.LENGTH_SHORT).show();
+                        }
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        }
+    }
+
+    private ArrayList<TLRPC.Dialog> legionDialogsArray(int currentAccount, int dialogsType, int folderId, boolean frozen) {
         if (frozen && frozenDialogsList != null) {
             return frozenDialogsList;
         }

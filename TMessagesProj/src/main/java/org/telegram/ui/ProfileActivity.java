@@ -153,6 +153,7 @@ import org.telegram.messenger.ImageLocation;
 import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.LanguageDetector;
 import org.telegram.messenger.LiteMode;
+import org.telegram.messenger.LegionHidden;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MediaDataController;
@@ -672,6 +673,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int channelInfoRow;
     private int usernameRow;
     private int legionIdRow; // TeLegion: user/chat ID
+    private int legionHideRow; // TeLegion: hide / unhide chat
     private int notificationsDividerRow;
     private int notificationsRow;
     private int bizHoursRow;
@@ -7443,8 +7445,20 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         return (ChatObject.isChannel(currentChat) ? "-100" : "-") + chatId;
     }
 
+    // TeLegion: lock obosthay hidden chat er profile e "Unhide" dekhano hobe na
+    private boolean legionCanShowHideRow() {
+        return LegionHidden.isRevealed() || !LegionHidden.isHidden(currentAccount, getDialogId());
+    }
+
     private boolean processOnClickOrPress(final int position, final View view, final float x, final float y) {
-        if (position == legionIdRow) {
+        if (position == legionHideRow) {
+            LegionHidden.toggle(currentAccount, getDialogId());
+            updateListAnimated(false);
+            if (listAdapter != null) {
+                listAdapter.notifyDataSetChanged();
+            }
+            return true;
+        } else if (position == legionIdRow) {
             AndroidUtilities.addToClipboard(legionPeerId());
             BulletinFactory.of(this).createCopyBulletin(getString(R.string.TextCopied)).show();
             return true;
@@ -10898,6 +10912,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         channelInfoRow = -1;
         usernameRow = -1;
         legionIdRow = -1;
+        legionHideRow = -1;
         settingsTimerRow = -1;
         settingsKeyRow = -1;
         notificationsDividerRow = -1;
@@ -11094,6 +11109,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
                 if (user != null) {
                     legionIdRow = rowCount++;
+                    if (user.id != getUserConfig().getClientUserId() && legionCanShowHideRow()) {
+                        legionHideRow = rowCount++;
+                    }
                 }
                 if (userInfo != null) {
                     if (userInfo.birthday != null) {
@@ -11262,6 +11280,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 }
             }
             legionIdRow = rowCount++;
+            if (legionCanShowHideRow()) {
+                legionHideRow = rowCount++;
+            }
             if (actionsView == null) {
                 if (infoHeaderRow != -1) {
                     notificationsDividerRow = rowCount++;
@@ -13647,6 +13668,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     if (position == legionIdRow) {
                         // divider: ei row er porei info section shesh na hole
                         detailCell.setTextAndValue(legionPeerId(), userId != 0 ? "User ID" : "Chat ID", position < infoEndRow);
+                    } else if (position == legionHideRow) {
+                        final boolean hidden = LegionHidden.isHidden(currentAccount, getDialogId());
+                        detailCell.setTextAndValue(hidden ? "Unhide chat" : "Hide chat", hidden ? "Chat list e abar dekhabe" : "Title e 5 bar tap korle dekha jabe", position < infoEndRow);
                     } else if (position == birthdayRow) {
                         TLRPC.UserFull userFull = getMessagesController().getUserFull(userId);
                         if (userFull != null && userFull.birthday != null) {
@@ -14508,7 +14532,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (position == infoHeaderRow || position == membersHeaderRow || position == settingsSectionRow2 ||
                     position == numberSectionRow || position == helpHeaderRow || position == debugHeaderRow || position == botPermissionsHeader) {
                 return VIEW_TYPE_HEADER;
-            } else if (position == phoneRow || position == locationRow || position == numberRow || position == birthdayRow || position == legionIdRow) {
+            } else if (position == phoneRow || position == locationRow || position == numberRow || position == birthdayRow || position == legionIdRow || position == legionHideRow) {
                 return VIEW_TYPE_TEXT_DETAIL;
             } else if (position == usernameRow || position == setUsernameRow) {
                 return VIEW_TYPE_TEXT_DETAIL_MULTILINE;
@@ -15839,6 +15863,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             put(++pointer, channelInfoRow, sparseIntArray);
             put(++pointer, usernameRow, sparseIntArray);
             put(++pointer, legionIdRow, sparseIntArray);
+            put(++pointer, legionHideRow, sparseIntArray);
             put(++pointer, notificationsDividerRow, sparseIntArray);
             put(++pointer, reportDividerRow, sparseIntArray);
             put(++pointer, notificationsRow, sparseIntArray);

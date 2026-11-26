@@ -671,6 +671,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
     private int userInfoRow;
     private int channelInfoRow;
     private int usernameRow;
+    private int legionIdRow; // TeLegion: user/chat ID
     private int notificationsDividerRow;
     private int notificationsRow;
     private int bizHoursRow;
@@ -7434,8 +7435,20 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         presentFragment(fragment);
     }
 
+    // TeLegion: Bot API format (group = -id, channel/supergroup = -100id)
+    private String legionPeerId() {
+        if (userId != 0) {
+            return String.valueOf(userId);
+        }
+        return (ChatObject.isChannel(currentChat) ? "-100" : "-") + chatId;
+    }
+
     private boolean processOnClickOrPress(final int position, final View view, final float x, final float y) {
-        if (position == usernameRow || position == setUsernameRow) {
+        if (position == legionIdRow) {
+            AndroidUtilities.addToClipboard(legionPeerId());
+            BulletinFactory.of(this).createCopyBulletin(getString(R.string.TextCopied)).show();
+            return true;
+        } else if (position == usernameRow || position == setUsernameRow) {
             final String username;
             final TLRPC.TL_username usernameObj;
             if (userId != 0) {
@@ -10884,6 +10897,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
         locationRow = -1;
         channelInfoRow = -1;
         usernameRow = -1;
+        legionIdRow = -1;
         settingsTimerRow = -1;
         settingsKeyRow = -1;
         notificationsDividerRow = -1;
@@ -11078,6 +11092,9 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                 if (user != null && username != null) {
                     usernameRow = rowCount++;
                 }
+                if (user != null) {
+                    legionIdRow = rowCount++;
+                }
                 if (userInfo != null) {
                     if (userInfo.birthday != null) {
                         birthdayRow = rowCount++;
@@ -11244,6 +11261,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     emptyRow = rowCount++;
                 }
             }
+            legionIdRow = rowCount++;
             if (actionsView == null) {
                 if (infoHeaderRow != -1) {
                     notificationsDividerRow = rowCount++;
@@ -13626,7 +13644,10 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
                     TextDetailCell detailCell = (TextDetailCell) holder.itemView;
                     boolean containsQr = false;
                     boolean containsGift = false;
-                    if (position == birthdayRow) {
+                    if (position == legionIdRow) {
+                        // divider: ei row er porei info section shesh na hole
+                        detailCell.setTextAndValue(legionPeerId(), userId != 0 ? "User ID" : "Chat ID", position < infoEndRow);
+                    } else if (position == birthdayRow) {
                         TLRPC.UserFull userFull = getMessagesController().getUserFull(userId);
                         if (userFull != null && userFull.birthday != null) {
                             final boolean today = BirthdayController.isToday(userFull);
@@ -14487,7 +14508,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             if (position == infoHeaderRow || position == membersHeaderRow || position == settingsSectionRow2 ||
                     position == numberSectionRow || position == helpHeaderRow || position == debugHeaderRow || position == botPermissionsHeader) {
                 return VIEW_TYPE_HEADER;
-            } else if (position == phoneRow || position == locationRow || position == numberRow || position == birthdayRow) {
+            } else if (position == phoneRow || position == locationRow || position == numberRow || position == birthdayRow || position == legionIdRow) {
                 return VIEW_TYPE_TEXT_DETAIL;
             } else if (position == usernameRow || position == setUsernameRow) {
                 return VIEW_TYPE_TEXT_DETAIL_MULTILINE;
@@ -15817,6 +15838,7 @@ public class ProfileActivity extends BaseFragment implements NotificationCenter.
             put(++pointer, userInfoRow, sparseIntArray);
             put(++pointer, channelInfoRow, sparseIntArray);
             put(++pointer, usernameRow, sparseIntArray);
+            put(++pointer, legionIdRow, sparseIntArray);
             put(++pointer, notificationsDividerRow, sparseIntArray);
             put(++pointer, reportDividerRow, sparseIntArray);
             put(++pointer, notificationsRow, sparseIntArray);

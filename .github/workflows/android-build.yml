@@ -118,6 +118,22 @@ jobs:
           java -version
           ./gradlew --version
 
+      # Nijer API ID/hash (repo Settings > Secrets and variables > Actions)
+      - name: Inject Telegram API keys
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+        run: |
+          F=TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+          if [[ ! "$TG_API_ID" =~ ^[0-9]+$ || ! "$TG_API_HASH" =~ ^[0-9a-f]{32}$ ]]; then
+            echo "ERROR: TG_API_ID / TG_API_HASH secret nai ba format vul."
+            exit 1
+          fi
+          sed -i -E "s/(int APP_ID = )[0-9]+;/\1${TG_API_ID};/" "$F"
+          sed -i -E "s/(String APP_HASH = )\"[^\"]*\";/\1\"${TG_API_HASH}\";/" "$F"
+          grep -q "int APP_ID = ${TG_API_ID};" "$F"
+          grep -q "String APP_HASH = \"${TG_API_HASH}\";" "$F"
+
       # 11. Build baseline APK
       - name: Build Afat Debug APK
         run: |

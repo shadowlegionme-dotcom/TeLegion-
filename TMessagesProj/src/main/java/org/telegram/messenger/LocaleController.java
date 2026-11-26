@@ -4785,6 +4785,11 @@ public class LocaleController {
 
     @Nullable
     private String getStringV2(String key, @StringRes int stringRes, String fallback) {
+        // TeLegion: app er nam hisebe "Telegram" er jaygay "TeLegion" (server er string soho)
+        return LegionBrand.apply(findStringV2(key, stringRes, fallback));
+    }
+
+    private String findStringV2(String key, @StringRes int stringRes, String fallback) {
         final Context context = ApplicationLoader.applicationContext;
         String value;
 
